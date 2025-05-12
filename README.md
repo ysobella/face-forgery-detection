@@ -1,8 +1,144 @@
-# face-forgery-detection
+# Face Forgery Detection
 
-This is the author's personal implementaion of the core two-stream model from **Generalizing Face Forgery Detection with High-frequency Features (CVPR 2021)**. 
+This project implements a two-stream neural network for detecting face forgeries in images. The model uses a combination of spatial and frequency domain features to identify manipulated images.
 
-For more details, please refer to the original [[paper](https://openaccess.thecvf.com/content/CVPR2021/html/Luo_Generalizing_Face_Forgery_Detection_With_High-Frequency_Features_CVPR_2021_paper.html)].
+## Project Structure
+
+```
+.
+├── src/
+│   ├── model_core.py      # Two-stream network architecture
+│   ├── data_loader.py     # Data loading and preprocessing
+│   ├── train.py          # Training script
+│   ├── test.py           # Testing script
+│   └── metrics.py        # Evaluation metrics
+├── outputs/              # Directory for saved models and results
+└── README.md            # This file
+```
+
+## Requirements
+
+- Python 3.7+
+- PyTorch 1.7+
+- torchvision
+- numpy
+- PIL
+- tqdm
+- scikit-learn
+
+## Data Organization
+
+The dataset should be organized in the following structure:
+
+```
+data_dir/
+├── train/
+│   ├── real/
+│   │   └── [real images]
+│   └── fake/
+│       └── [fake images]
+├── val/
+│   ├── real/
+│   │   └── [real images]
+│   └── fake/
+│       └── [fake images]
+└── test/
+    ├── real/
+    │   └── [real images]
+    └── fake/
+        └── [fake images]
+```
+
+## Training
+
+To train the model, use the following command:
+
+```bash
+python src/train.py --data_dir /path/to/data --output_dir outputs
+```
+
+Training parameters:
+- Batch size: 8
+- Number of epochs: 100
+- Number of workers: 8
+- Early stopping patience: 5 epochs
+- Learning rate: 0.001 (default)
+
+Additional options:
+```bash
+python src/train.py \
+    --data_dir /path/to/data \
+    --output_dir outputs \
+    --batch_size 8 \
+    --num_workers 8 \
+    --learning_rate 0.001 \
+    --epochs 100 \
+    --patience 5
+```
+
+The training script will:
+1. Load and preprocess the data (only normalization, no resizing)
+2. Train the model with early stopping
+3. Save the best model based on validation F1-score
+4. Evaluate the model on the test set
+
+## Testing
+
+### Test a Single Image
+
+To test a single image:
+
+```bash
+python src/test.py \
+    --model_path outputs/best_model.pth \
+    --single_image /path/to/image.jpg
+```
+
+### Test a Directory
+
+To test all images in a directory:
+
+```bash
+python src/test.py \
+    --model_path outputs/best_model.pth \
+    --test_dir /path/to/test/directory
+```
+
+The test directory should follow the same structure as the training data:
+```
+test_dir/
+├── real/
+│   └── [real images]
+└── fake/
+    └── [fake images]
+```
+
+## Model Architecture
+
+The model uses a two-stream architecture:
+1. Spatial Stream: Processes the original image
+2. Frequency Stream: Processes the frequency domain representation
+
+Key features:
+- No image resizing (preserves original image dimensions)
+- Only normalization is applied to input images
+- CrossEntropyLoss for training
+- Early stopping to prevent overfitting
+
+## Evaluation Metrics
+
+The model is evaluated using:
+- Accuracy
+- Precision
+- Recall
+- F1-score
+
+## Notes
+
+- The model preserves original image dimensions and only applies normalization
+- Early stopping helps prevent overfitting
+- The best model is saved based on validation F1-score
+- GPU is used if available, otherwise falls back to CPU
 
 ## Overview
 
