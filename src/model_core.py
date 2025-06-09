@@ -1,3 +1,11 @@
+"""
+Two-Stream Neural Network for Face Forgery Detection
+
+This module defines the core architecture of the detection model. It combines
+spatial and frequency domain features through SRM filters, spatial/channel attention,
+and dual cross-modal attention modules to detect forged face images.
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,6 +16,13 @@ from networks.xception import TransferModel
 
 
 class SRMPixelAttention(nn.Module):
+    """
+    Spatial attention guided by SRM-filtered images.
+
+    Applies SRM filtering followed by a convolutional encoder and a spatial
+    attention mechanism to generate attention maps highlighting forgery regions.
+    """
+    
     def __init__(self, in_channels):
         super(SRMPixelAttention, self).__init__()
         self.srm = SRMConv2d_simple()
@@ -29,6 +44,14 @@ class SRMPixelAttention(nn.Module):
                     nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
+        """
+        Args:
+            x (Tensor): Input RGB image.
+
+        Returns:
+            Tensor: Attention map.
+        """
+        
         x_srm = self.srm(x)
         fea = self.conv(x_srm)        
         att_map = self.pa(fea)
@@ -37,6 +60,12 @@ class SRMPixelAttention(nn.Module):
 
 
 class FeatureFusionModule(nn.Module):
+    """
+    Feature Fusion using channel attention.
+
+    Fuses RGB and SRM feature maps using 1x1 conv and channel attention.
+    """
+    
     def __init__(self, in_chan=2048*2, out_chan=2048, *args, **kwargs):
         super(FeatureFusionModule, self).__init__()
         self.convblk = nn.Sequential(
@@ -48,11 +77,22 @@ class FeatureFusionModule(nn.Module):
         self.init_weight()
 
     def forward(self, x, y):
+        """
+        Args:
+            x (Tensor): Feature from RGB stream.
+            y (Tensor): Feature from SRM stream.
+
+        Returns:
+            Tensor: Fused feature map.
+        """
+        
         fuse_fea = self.convblk(torch.cat((x, y), dim=1))
         fuse_fea = fuse_fea + fuse_fea * self.ca(fuse_fea)
         return fuse_fea
 
     def init_weight(self):
+        """Initialize weights for conv layers."""
+        
         for ly in self.children():
             if isinstance(ly, nn.Conv2d):
                 nn.init.kaiming_normal_(ly.weight, a=1)
@@ -61,6 +101,14 @@ class FeatureFusionModule(nn.Module):
 
 
 class Two_Stream_Net(nn.Module):
+    """
+    Main model combining RGB and SRM feature extraction streams.
+
+    This two-stream architecture extracts features from both the spatial (RGB)
+    and frequency (SRM) domains, then fuses them with attention mechanisms to
+    perform classification.
+    """
+    
     def __init__(self):
         super().__init__()
         self.xception_rgb = TransferModel(
@@ -88,6 +136,16 @@ class Two_Stream_Net(nn.Module):
         self.att_dic = {}
 
     def features(self, x):
+        """
+        Extract multi-modal features from input image.
+
+        Args:
+            x (Tensor): Input image tensor (B, 3, H, W).
+
+        Returns:
+            Tensor: Fused feature representation.
+        """
+        
         srm = self.srm_conv0(x)
 
         x = self.xception_rgb.model.fea_part1_0(x)
@@ -129,13 +187,30 @@ class Two_Stream_Net(nn.Module):
         return fea
 
     def classifier(self, fea):
+        """
+        Apply classifier head to fused features.
+
+        Args:
+            fea (Tensor): Input feature tensor.
+
+        Returns:
+            Tuple: (output logits, feature representation)
+        """
+        
         out, fea = self.xception_rgb.classifier(fea)
         return out, fea
 
     def forward(self, x):
-        '''
-        x: original rgb
-        '''
+        """
+        Forward pass of the model.
+
+        Args:
+            x (Tensor): Input image tensor (B, 3, H, W)
+
+        Returns:
+            tuple: (logits, features, attention map)
+        """
+        
         out, fea = self.classifier(self.features(x))
 
         return out, fea, self.att_map

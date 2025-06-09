@@ -1,14 +1,13 @@
 """
- Copyright (c) 2018 Intel Corporation
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-      http://www.apache.org/licenses/LICENSE-2.0
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
+AM-Softmax Loss and Angle-Based Linear Layer
+
+Implements the Angular Margin Softmax Loss (AM-Softmax) for classification tasks,
+often used in face verification/recognition tasks to improve inter-class separability.
+
+Includes:
+- AngleSimpleLinear: Computes cosine similarity between inputs and learned weights.
+- AMSoftmaxLoss: Margin-based softmax loss with optional cosine or arc margin.
+- focal_loss: Optional focal loss wrapper.
 """
 
 import math
@@ -20,8 +19,19 @@ from torch.nn import Parameter
 
 
 class AngleSimpleLinear(nn.Module):
-    """Computes cos of angles between input vectors and weights vectors"""
+    """
+    Angular linear layer that computes cosine similarity between input features and weight vectors.
+
+    This is typically used before applying an angular margin-based softmax loss.
+    """
+    
     def __init__(self, in_features, out_features):
+        """
+        Args:
+            in_features (int): Size of each input sample.
+            out_features (int): Number of classes / output units.
+        """
+        
         super(AngleSimpleLinear, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -29,22 +39,63 @@ class AngleSimpleLinear(nn.Module):
         self.weight.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
 
     def forward(self, x):
+        """
+        Computes cosine similarity between input and normalized weight vectors.
+
+        Args:
+            x (Tensor): Input tensor of shape (B, in_features)
+
+        Returns:
+            Tensor: Cosine similarities (B, out_features)
+        """
+        
         cos_theta = F.normalize(x, dim=1).mm(F.normalize(self.weight, dim=0))
         return cos_theta.clamp(-1, 1)
 
 
 def focal_loss(input_values, gamma):
-    """Computes the focal loss"""
+    """
+    Computes the focal loss.
+
+    Args:
+        input_values (Tensor): Cross-entropy loss per sample.
+        gamma (float): Focusing parameter for modulating factor (1 - p_t)^gamma.
+
+    Returns:
+        Tensor: Scalar focal loss.
+    """
+    
     p = torch.exp(-input_values)
     loss = (1 - p) ** gamma * input_values
     return loss.mean()
 
 
 class AMSoftmaxLoss(nn.Module):
-    """Computes the AM-Softmax loss with cos or arc margin"""
+    """
+    Additive Margin Softmax Loss (AM-Softmax).
+
+    Supports two types of margin: 'cos' and 'arc'. Improves decision margin in angular space.
+
+    Attributes:
+        margin_type (str): Type of margin ('cos' or 'arc').
+        gamma (float): Focal loss gamma. If 0, no focal loss is applied.
+        m (float): Margin value.
+        s (float): Scaling factor.
+        t (float): Optional hard example mining scalar.
+    """
+    
     margin_types = ['cos', 'arc']
 
     def __init__(self, margin_type='cos', gamma=0., m=0.5, s=30, t=1.):
+        """
+        Args:
+            margin_type (str): 'cos' or 'arc' margin.
+            gamma (float): Focal loss gamma.
+            m (float): Margin value to subtract or modify angle.
+            s (float): Scaling factor for logits.
+            t (float): Threshold adjustment for hard samples (t >= 1).
+        """
+        
         super(AMSoftmaxLoss, self).__init__()
         assert margin_type in AMSoftmaxLoss.margin_types
         self.margin_type = margin_type
@@ -61,6 +112,17 @@ class AMSoftmaxLoss(nn.Module):
         self.t = t
 
     def forward(self, cos_theta, target):
+        """
+        Forward pass to compute AM-Softmax loss.
+
+        Args:
+            cos_theta (Tensor): Cosine similarity predictions (B, num_classes)
+            target (Tensor): Ground truth labels (B,)
+
+        Returns:
+            Tensor: Loss value
+        """
+        
         if self.margin_type == 'cos':
             phi_theta = cos_theta - self.m
         else:

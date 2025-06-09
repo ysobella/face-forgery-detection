@@ -1,3 +1,10 @@
+"""
+Evaluation Metrics for Face Forgery Detection
+
+Provides utility functions to compute accuracy, precision, recall,
+and F1-score, as well as to collect predictions from a model.
+"""
+
 import torch
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
@@ -34,16 +41,17 @@ def calculate_metrics(y_true, y_pred):
 
 def get_predictions(model, dataloader, device):
     """
-    Get predictions for a dataset
-    
+    Generate predictions and ground truth labels from a DataLoader.
+
     Args:
-        model: The model to use for predictions
-        dataloader: DataLoader containing the data
-        device: Device to run the model on
-        
+        model (torch.nn.Module): Trained model.
+        dataloader (DataLoader): DataLoader containing dataset.
+        device (torch.device): Device to perform inference on.
+
     Returns:
-        Tuple of (predictions, true_labels)
+        tuple: (predictions, true_labels) as NumPy arrays.
     """
+    
     model.eval()
     all_preds = []
     all_labels = []

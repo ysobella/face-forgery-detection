@@ -1,15 +1,32 @@
+"""
+Attention Modules for Face Forgery Detection
+
+This module implements various attention mechanisms used in the network:
+- Channel Attention
+- Spatial Attention
+- Self Attention
+- Cross-Modal Attention
+- Dual Cross-Modal Attention
+
+References:
+- CBAM: Woo et al., ECCV 2018
+- Self-Attention GAN: https://github.com/heykeetae/Self-Attention-GAN
+"""
+
 import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-"""
-Channel Attention and Spaitial Attention from    
-Woo, S., Park, J., Lee, J.Y., & Kweon, I. CBAM: Convolutional Block Attention Module. ECCV2018.
-"""
-
 
 class ChannelAttention(nn.Module):
+    """
+    Channel Attention Module from CBAM (ECCV 2018).
+
+    Emphasizes informative feature channels by applying
+    channel-wise attention using both average and max pooling.
+    """
+    
     def __init__(self, in_planes, ratio=8):
         super(ChannelAttention, self).__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
@@ -26,12 +43,20 @@ class ChannelAttention(nn.Module):
                 nn.init.xavier_normal_(m.weight.data, gain=0.02)
 
     def forward(self, x):
+        """Apply channel attention."""
         avgout = self.sharedMLP(self.avg_pool(x))
         maxout = self.sharedMLP(self.max_pool(x))
         return self.sigmoid(avgout + maxout)
 
 
 class SpatialAttention(nn.Module):
+    """
+    Spatial Attention Module from CBAM (ECCV 2018).
+
+    Enhances important spatial regions by applying attention
+    across the spatial dimensions.
+    """
+    
     def __init__(self, kernel_size=7):
         super(SpatialAttention, self).__init__()
         assert kernel_size in (3, 7), "kernel size must be 3 or 7"
@@ -45,6 +70,7 @@ class SpatialAttention(nn.Module):
                 nn.init.xavier_normal_(m.weight.data, gain=0.02)
 
     def forward(self, x):
+        """Apply spatial attention."""
         avgout = torch.mean(x, dim=1, keepdim=True)
         maxout, _ = torch.max(x, dim=1, keepdim=True)
         x = torch.cat([avgout, maxout], dim=1)
@@ -58,7 +84,12 @@ The following modules are modified based on https://github.com/heykeetae/Self-At
 
 
 class Self_Attn(nn.Module):
-    """ Self attention Layer"""
+    """
+    Self-Attention Layer for feature refinement.
+
+    Based on Self-Attention GAN. Adds global context
+    by computing attention over the entire spatial field.
+    """
 
     def __init__(self, in_dim, out_dim=None, add=False, ratio=8):
         super(Self_Attn, self).__init__()
@@ -80,13 +111,18 @@ class Self_Attn(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x):
+       
         """
-            inputs :
-                x : input feature maps( B X C X W X H)
-            returns :
-                out : self attention value + input feature 
-                attention: B X N X N (N is Width*Height)
+        Forward pass for self-attention.
+
+        Args:
+            x (Tensor): Input feature maps( B X C X W X H)
+
+        Returns:
+            out : self attention value + input feature 
+            attention: B X N X N (N is Width*Height)
         """
+        
         m_batchsize, C, width, height = x.size()
         proj_query = self.query_conv(x).view(
             m_batchsize, -1, width*height).permute(0, 2, 1)  # B X C X(N)
@@ -108,7 +144,11 @@ class Self_Attn(nn.Module):
 
 
 class CrossModalAttention(nn.Module):
-    """ CMA attention Layer"""
+    """
+    Cross-Modal Attention Layer.
+
+    Learns attention maps by correlating one modality with another.
+    """
 
     def __init__(self, in_dim, activation=None, ratio=8, cross_value=True):
         super(CrossModalAttention, self).__init__()
@@ -131,13 +171,18 @@ class CrossModalAttention(nn.Module):
                 nn.init.xavier_normal_(m.weight.data, gain=0.02)
 
     def forward(self, x, y):
+        
         """
-            inputs :
-                x : input feature maps( B X C X W X H)
-            returns :
-                out : self attention value + input feature 
-                attention: B X N X N (N is Width*Height)
+        Forward pass for cross-modal attention.
+
+        Args:
+            x (Tensor): Target input (B, C, H, W)
+            y (Tensor): Source input for attention map
+
+        Returns:
+            Tensor: Refined feature after attention
         """
+        
         B, C, H, W = x.size()
 
         proj_query = self.query_conv(x).view(
@@ -165,7 +210,11 @@ class CrossModalAttention(nn.Module):
 
 
 class DualCrossModalAttention(nn.Module):
-    """ Dual CMA attention Layer"""
+    """
+    Dual Cross-Modal Attention (DCMA) Layer.
+
+    Applies attention in both directions (X->Y and Y->X) and fuses results.
+    """
 
     def __init__(self, in_dim, activation=None, size=16, ratio=8, ret_att=False):
         super(DualCrossModalAttention, self).__init__()
@@ -203,12 +252,16 @@ class DualCrossModalAttention(nn.Module):
 
     def forward(self, x, y):
         """
-            inputs :
-                x : input feature maps( B X C X W X H)
-            returns :
-                out : self attention value + input feature 
-                attention: B X N X N (N is Width*Height)
+        Forward pass for dual cross-modal attention.
+
+        Args:
+            x (Tensor): First input modality (B, C, H, W)
+            y (Tensor): Second input modality (B, C, H, W)
+
+        Returns:
+            Tuple[Tensor, Tensor]: Attention-enhanced features from both inputs
         """
+        
         B, C, H, W = x.size()
 
         def _get_att(a, b):

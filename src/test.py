@@ -1,3 +1,18 @@
+"""
+Test Script for Face Forgery Detection Model
+
+This script allows testing a trained Two-Stream model on either:
+- A single image (for real/fake classification)
+- A directory of test images (structured into 'real' and 'fake' folders)
+
+Usage:
+    Single Image:
+        python test.py --model_path path/to/model.pth --single_image path/to/image.jpg
+
+    Directory:
+        python test.py --model_path path/to/model.pth --test_dir path/to/test_dir
+"""
+
 import os
 import torch
 import argparse
@@ -7,7 +22,16 @@ from model_core import Two_Stream_Net
 from metrics import calculate_metrics
 
 def load_image(image_path):
-    """Load and preprocess a single image"""
+    """
+    Load and preprocess a single image.
+
+    Args:
+        image_path (str): Path to the image.
+
+    Returns:
+        Tensor: Preprocessed image tensor with batch dimension.
+    """
+    
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
@@ -18,7 +42,18 @@ def load_image(image_path):
     return image.unsqueeze(0)  # Add batch dimension
 
 def predict_single_image(model, image_path, device):
-    """Predict whether a single image is real or fake"""
+    """
+    Predict whether a single image is real or fake.
+
+    Args:
+        model (nn.Module): Trained model.
+        image_path (str): Path to the image.
+        device (torch.device): Device to run inference on.
+
+    Returns:
+        dict: Prediction result containing class, confidence, and attention map.
+    """
+    
     model.eval()
     image = load_image(image_path).to(device)
     
@@ -34,7 +69,18 @@ def predict_single_image(model, image_path, device):
     }
 
 def test_directory(model, test_dir, device):
-    """Test all images in a directory"""
+    """
+    Test all images in a directory (expects 'real' and 'fake' subfolders).
+
+    Args:
+        model (nn.Module): Trained model.
+        test_dir (str): Path to test directory.
+        device (torch.device): Device to run inference on.
+
+    Returns:
+        dict: Classification metrics for the test set.
+    """
+    
     real_dir = os.path.join(test_dir, 'real')
     fake_dir = os.path.join(test_dir, 'fake')
     
@@ -62,6 +108,10 @@ def test_directory(model, test_dir, device):
     return metrics
 
 def main():
+    """
+    Main entry point. Loads model, performs testing, and prints results.
+    """
+    
     parser = argparse.ArgumentParser(description='Test face forgery detection model')
     parser.add_argument('--model_path', type=str, required=True,
                       help='Path to the trained model')

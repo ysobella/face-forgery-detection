@@ -1,3 +1,10 @@
+"""
+Training Script for Face Forgery Detection
+
+This script trains the Two-Stream Neural Network on a dataset of real and fake face images.
+It supports early stopping based on validation performance and saves the best model.
+"""
+
 import os
 import torch
 import torch.nn as nn
@@ -11,6 +18,14 @@ from data_loader import get_data_loaders
 from metrics import calculate_metrics, get_predictions
 
 class EarlyStopping:
+    """
+    Early stopping utility to halt training when validation loss stops improving.
+
+    Args:
+        patience (int): Number of epochs to wait after last improvement.
+        min_delta (float): Minimum change to qualify as an improvement.
+    """
+    
     def __init__(self, patience=5, min_delta=0):
         self.patience = patience
         self.min_delta = min_delta
@@ -19,6 +34,13 @@ class EarlyStopping:
         self.early_stop = False
         
     def __call__(self, val_loss):
+        """
+        Check whether training should stop based on validation loss.
+
+        Args:
+            val_loss (float): Current validation loss.
+        """
+        
         if self.best_loss is None:
             self.best_loss = val_loss
         elif val_loss > self.best_loss - self.min_delta:
@@ -30,6 +52,13 @@ class EarlyStopping:
             self.counter = 0
 
 def train(args):
+    """
+    Train the Two-Stream model with early stopping and evaluate on test set.
+
+    Args:
+        args (argparse.Namespace): Parsed training arguments.
+    """
+    
     # Set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -110,6 +139,10 @@ def train(args):
         print(f'{metric}: {value:.4f}')
 
 def main():
+    """
+    Parse command-line arguments and start training.
+    """
+    
     parser = argparse.ArgumentParser(description='Train and test face forgery detection model')
     parser.add_argument('--data_dir', type=str, required=True,
                       help='Directory containing train/val/test subdirectories')
