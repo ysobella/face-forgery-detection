@@ -230,8 +230,8 @@ class DualCrossModalAttention(nn.Module):
         self.key_conv_share = nn.Conv2d(
             in_channels=in_dim//ratio, out_channels=in_dim//ratio, kernel_size=1)
 
-        self.linear1 = nn.Linear(size*size, size*size)
-        self.linear2 = nn.Linear(size*size, size*size)
+        # self.linear1 = nn.Linear(size*size, size*size)
+        # self.linear2 = nn.Linear(size*size, size*size)
 
         # separated value conv
         self.value_conv1 = nn.Conv2d(
